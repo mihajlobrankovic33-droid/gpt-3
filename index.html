@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <title>StudyGPT Pro - Your AI Study Buddy</title>
+    <meta name="description" content="Your personal AI tutor for school learning. Get explanations, summaries, quizzes, and homework help." />
+    <meta name="author" content="BUM Systems" />
+    <link rel="icon" type="image/png" href="/favicon-gold-bolt.png" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2a9d8f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StudyGPT" />
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/pwa-192x192.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/pwa-192x192.png" />
+    
+    <!-- iOS Splash Screens -->
+    <link rel="apple-touch-startup-image" href="/pwa-512x512.png" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Prevent phone number detection -->
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="StudyGPT - Your AI Study Buddy" />
+    <meta property="og:description" content="Your personal AI tutor for school learning. Get explanations, summaries, quizzes, and homework help." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/pwa-512x512.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Twitter StudyGPT - Your AI Study Buddy" />
+    <meta name="twitter:description" content="Your personal AI tutor for school learning." />
+    <meta name="twitter:image" content="/pwa-512x512.png" />
+    
+    <style>
+      /* Prevent overscroll/bounce on iOS */
+      html, body {
+        overscroll-behavior: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      /* Hide tap highlight */
+      * {
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

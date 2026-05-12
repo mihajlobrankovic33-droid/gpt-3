@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+
+/* Safe area support for mobile devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Custom breakpoint for extra small screens */
+@media (min-width: 480px) {
+  .xs\:block { display: block; }
+  .xs\:inline { display: inline; }
+  .xs\:hidden { display: hidden; }
+}
+
+/* StudyGPT Design System - Warm, Student-Friendly Colors */
+
+@layer base {
+  :root {
+    /* Darker warm background to match avatars */
+    --background: 35 25% 88%;
+    --foreground: 220 25% 15%;
+
+    /* Card surfaces - warm off-white for contrast */
+    --card: 40 30% 96%;
+    --card-foreground: 220 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 20%;
+
+    /* Teal primary - calm, educational, trustworthy */
+    --primary: 174 58% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Soft lavender secondary */
+    --secondary: 250 50% 96%;
+    --secondary-foreground: 250 30% 40%;
+
+    /* Muted for subtle elements */
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 15% 50%;
+
+    /* Coral accent - warm, encouraging */
+    --accent: 15 85% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 220 20% 88%;
+    --input: 220 20% 92%;
+    --ring: 174 58% 42%;
+
+    --radius: 1rem;
+
+    /* Custom colors for StudyGPT */
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(174 58% 42%) 0%, hsl(195 70% 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(15 85% 60%) 0%, hsl(35 90% 55%) 100%);
+    --gradient-soft: linear-gradient(180deg, hsl(40 33% 98%) 0%, hsl(40 25% 95%) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 2px 12px -2px hsl(220 25% 20% / 0.08);
+    --shadow-medium: 0 4px 20px -4px hsl(220 25% 20% / 0.12);
+    --shadow-strong: 0 8px 30px -6px hsl(220 25% 20% / 0.16);
+    --shadow-glow: 0 0 30px hsl(174 58% 42% / 0.2);
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 174 58% 42%;
+  }
+
+  .dark {
+    /* Midnight Black Theme - ChatGPT Style */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 95%;
+
+    /* Dark gray cards */
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Neon teal primary */
+    --primary: 174 100% 50%;
+    --primary-foreground: 0 0% 0%;
+
+    /* Dark secondary */
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 85%;
+
+    /* Muted dark grays */
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
+
+    /* Neon accent */
+    --accent: 280 100% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 85% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Subtle borders */
+    --border: 0 0% 18%;
+    --input: 0 0% 12%;
+    --ring: 174 100% 50%;
+
+    /* Gradients (override light theme ones) */
+    --gradient-hero: linear-gradient(135deg, hsl(174 100% 50%) 0%, hsl(280 100% 65%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(280 100% 65%) 0%, hsl(174 100% 50%) 100%);
+    --gradient-soft: linear-gradient(180deg, hsl(0 0% 6%) 0%, hsl(0 0% 2%) 100%);
+
+    /* Neon success/warning */
+    --success: 150 100% 45%;
+    --success-foreground: 0 0% 0%;
+    
+    --warning: 45 100% 50%;
+    --warning-foreground: 0 0% 0%;
+
+    /* Neon shadows */
+    --shadow-soft: 0 2px 12px -2px hsl(0 0% 0% / 0.5);
+    --shadow-medium: 0 4px 20px -4px hsl(0 0% 0% / 0.6);
+    --shadow-strong: 0 8px 30px -6px hsl(0 0% 0% / 0.7);
+    --shadow-glow: 0 0 20px hsl(174 100% 50% / 0.3);
+    --shadow-neon: 0 0 30px hsl(280 100% 65% / 0.25);
+
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 174 100% 50%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 174 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Allow text selection in input fields */
+  input, textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito', sans-serif;
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+
+  .shadow-strong {
+    box-shadow: var(--shadow-strong);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-bounce-soft {
+    animation: bounceSoft 2s ease-in-out infinite;
+  }
+
+  .animate-pulse-soft {
+    animation: pulseSoft 2s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(16px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes bounceSoft {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .animate-subtle-bounce {
+    animation: subtleBounce 0.6s ease-in-out infinite;
+  }
+
+  @keyframes subtleBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+}
+
+/* Hide Lovable watermarks */
+[data-lovable-badge],
+.lovable-badge,
+a[href*="lovable.dev"]:not([data-keep]),
+div[class*="lovable"],
+span[class*="lovable"],
+img[alt*="Lovable"],
+img[src*="lovable"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
