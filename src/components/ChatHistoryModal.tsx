@@ -75,13 +75,7 @@ export function ChatHistoryModal({
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (open && user) {
-      fetchSessions();
-    }
-  }, [open, user]);
-
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -113,7 +107,13 @@ export function ChatHistoryModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, toast]);
+
+  useEffect(() => {
+    if (open && user) {
+      fetchSessions();
+    }
+  }, [open, user, fetchSessions]);
 
   const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();

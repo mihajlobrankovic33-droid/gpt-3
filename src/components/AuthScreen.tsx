@@ -30,7 +30,12 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
         : await signUpWithEmail(email, password);
 
       if (result.error) {
-        setError(result.error);
+        // Helpful suggestion if login fails
+        if (isLogin && result.error.toLowerCase().includes("invalid login credentials")) {
+          setError("Pogrešna lozinka ili nalog ne postoji. Možda trebaš da se registruješ?");
+        } else {
+          setError(result.error);
+        }
         setIsLoading(false);
       }
       // Session change will trigger refresh via context

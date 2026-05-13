@@ -243,8 +243,7 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
     // 3. Robust timeout
     const timeout = setTimeout(() => {
-      if (mounted && isLoading) {
-        console.warn("Supabase: Auth loading safety timeout reached");
+      if (mounted) {
         setIsLoading(false);
       }
     }, 8000);
@@ -254,7 +253,7 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [ensureProfile, isLoading]);
+  }, [ensureProfile]);
 
   useEffect(() => {
     if (session) {
@@ -315,6 +314,8 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (data.session?.user) {
       await ensureProfile(data.session.user);
+      setSession(data.session);
+      setUser(data.session.user);
     }
 
     return { error: null };

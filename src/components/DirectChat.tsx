@@ -60,7 +60,7 @@ export function DirectChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     if (!user) return;
 
     const { data: participants } = await supabase
@@ -132,10 +132,10 @@ export function DirectChat() {
     });
 
     setConversations(convList);
-  };
+  }, [user]);
 
   // Fetch messages for selected conversation
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!selectedConversation) return;
 
     const { data, error } = await supabase
@@ -178,10 +178,10 @@ export function DirectChat() {
         .eq("conversation_id", selectedConversation.id)
         .neq("sender_id", user.id);
     }
-  };
+  }, [selectedConversation, user]);
 
   // Fetch my puskice for sharing
-  const fetchMyPuskice = async () => {
+  const fetchMyPuskice = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("puskice")
@@ -189,16 +189,16 @@ export function DirectChat() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setMyPuskice(data || []);
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchConversations();
     fetchMyPuskice();
-  }, [user]);
+  }, [user, fetchConversations, fetchMyPuskice]);
 
   useEffect(() => {
     fetchMessages();
-  }, [selectedConversation]);
+  }, [selectedConversation, fetchMessages]);
 
   // Realtime subscription
   useEffect(() => {
@@ -223,7 +223,7 @@ export function DirectChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedConversation]);
+  }, [selectedConversation, fetchMessages]);
 
   // Scroll to bottom
   useEffect(() => {

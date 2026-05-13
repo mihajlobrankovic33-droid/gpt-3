@@ -56,7 +56,7 @@ export function ProCodesAdmin({ isOpen, onClose }: ProCodesAdminProps) {
     if (isOpen) {
       fetchCodes();
     }
-  }, [isOpen]);
+  }, [isOpen, fetchCodes]);
 
   const handleCreate = async () => {
     try {

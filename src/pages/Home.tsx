@@ -277,7 +277,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   }, [customSystemPrompt, toast]);
 
   // Save session to database
-  const saveSession = async (msgs: Message[]) => {
+  const saveSession = useCallback(async (msgs: Message[]) => {
     if (!user || msgs.length === 0) return;
 
     const simplifiedMessages = msgs.map(m => ({ role: m.role, content: m.content }));
@@ -316,7 +316,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
     } catch (error) {
       console.error('Error saving session:', error);
     }
-  };
+  }, [user, currentSessionId]);
 
   const handleSend = async (content: string, fileUrl?: string, fileType?: "image" | "pdf" | "sticker") => {
     const userMessage: Message = { 
@@ -344,7 +344,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
       }, 2000); // Increased debounce to 2 seconds for better performance
       return () => clearTimeout(timeout);
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, saveSession]);
 
   const handleLoadSession = (loadedMessages: Array<{ role: "user" | "assistant"; content: string }>, sessionId: string) => {
     setMessages(loadedMessages);

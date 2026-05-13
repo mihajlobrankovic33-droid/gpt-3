@@ -83,7 +83,7 @@ export function PuskiceSection() {
   };
 
   // Fetch puskice from database
-  const fetchPuskice = async () => {
+  const fetchPuskice = useCallback(async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -105,16 +105,16 @@ export function PuskiceSection() {
       (item) => item.created_at.split("T")[0] === today
     );
     setTodayCount(todayItems.length);
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchPuskice();
-  }, [user]);
+  }, [user, fetchPuskice]);
 
   const remaining = Math.max(0, DAILY_LIMIT - todayCount);
 
   // Group puskice by subject for history view
-  const groupedPuskice = useMemo(() => groupBySubject(puskice), [puskice, t.other]);
+  const groupedPuskice = useMemo(() => groupBySubject(puskice), [puskice, groupBySubject]);
   const sortedSubjects = useMemo(() => 
     Object.keys(groupedPuskice).sort((a, b) => a.localeCompare(b)), 
     [groupedPuskice]
