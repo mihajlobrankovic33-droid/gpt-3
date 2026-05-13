@@ -5,7 +5,9 @@ let aiInstance: GoogleGenAI | null = null;
 
 export const getGemini = () => {
   if (!aiInstance) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   import.meta.env.GEMINI_API_KEY || 
+                   (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : undefined);
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY or GEMINI_API_KEY in your environment.");
     }

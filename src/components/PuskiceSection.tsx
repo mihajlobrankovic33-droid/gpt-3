@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProUpgradeModal } from "./ProUpgradeModal";
-import { supabase, isConfigValid } from "@/integrations/supabase/client";
+import { supabase, isConfigValid, SUPABASE_URL } from "@/integrations/supabase/client";
 import { Plus, Eye, Trash2, FileText, Sparkles, Shield, X, Loader2, Upload, BookOpen, ChevronDown, ChevronRight, History } from "lucide-react";
 import { FullscreenModal, cleanText } from "@/components/FullscreenModal";
 import { useToast } from "@/hooks/use-toast";
@@ -201,7 +201,7 @@ export function PuskiceSection() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token && isConfigValid()) {
           const response = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-puskica`,
+            `${SUPABASE_URL}/functions/v1/extract-puskica`,
             {
               method: "POST",
               headers: {

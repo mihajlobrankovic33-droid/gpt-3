@@ -25,7 +25,7 @@ import { InstallPWAButton } from "@/components/InstallPWAButton";
 import { Button } from "@/components/ui/button";
 import { getGemini, STUDY_CHAT_SYSTEM_PROMPT } from "@/lib/gemini";
 import { type Content, type GenerateContentResponse } from "@google/genai";
-import { supabase, isConfigValid } from "@/integrations/supabase/client";
+import { supabase, isConfigValid, SUPABASE_URL } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -35,7 +35,7 @@ interface Message {
   fileName?: string;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-chat`;
+const CHAT_URL = `${SUPABASE_URL}/functions/v1/study-chat`;
 
 // Batch size for streaming updates to prevent UI freezing
 const STREAM_BATCH_SIZE = 10;
@@ -148,7 +148,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
       
       // If Supabase is configured, use it
       if (session?.access_token && isConfigValid()) {
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-chat`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/study-chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
