@@ -215,7 +215,11 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       // Create a specific redirect URL for this environment
-      const redirectUri = window.location.origin;
+      // We use origin but we ensure it ends with / if needed
+      const redirectUri = window.location.origin.endsWith('/') 
+        ? window.location.origin 
+        : `${window.location.origin}/`;
+      
       console.log("Supabase: Initiating Google login with redirect:", redirectUri);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -238,8 +242,20 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (data?.url) {
         console.log("Supabase: Opening OAuth URL:", data.url);
+        
+        // Check if the URL is just our own site (misconfiguration)
+        if (data.url.includes(window.location.hostname) && !data.url.includes('supabase.co')) {
+          console.warn("Supabase returned a URL that points back to current site instead of Google login.");
+          toast({
+            title: "Problem sa podešavanjem",
+            description: "Supabase vraća pogrešan URL. Proverite da li je Google provajder omogućen u Supabase dashboard-u.",
+            variant: "destructive",
+          });
+          // Continue anyway to see where it goes
+        }
+
         // Opening in a new window is safer for iframes as Google blocks being loaded in iframes
-        const authWindow = window.open(data.url, '_blank', 'width=600,height=700');
+        const authWindow = window.open(data.url, 'SupabaseAuth', 'width=600,height=700');
         
         if (!authWindow) {
           toast({
@@ -252,7 +268,7 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
         toast({
           title: "Google prijava",
-          description: "Molimo završite prijavu u novom prozoru. Ako se pojavi 'localhost:3000' greška, proverite podešavanja u Supabase dashboard-u.",
+          description: "Molimo završite prijavu u novom prozoru. VAŽNO: Proverite da li ste u Supabase dashboard-u podesili 'Site URL' na adresu ovog sajta.",
         });
       } else {
         throw new Error("Supabase nije vratio URL za prijavu.");
