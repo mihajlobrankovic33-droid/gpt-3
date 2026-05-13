@@ -1,6 +1,6 @@
 {
-  "name": "Stydy GPT 890",
-  "description": "A comprehensive study assistant with AI-powered chat, admin panel, and customization options.",
+  "name": "StudyBuddy - AI Assistant",
+  "description": "Your ultimate study assistant with AI-powered chat, simple notes extraction, and personalized learning support.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
