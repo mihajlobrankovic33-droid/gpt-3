@@ -166,143 +166,95 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
-      console.log("Supabase: Initializing auth...");
-      
-      const hash = typeof window !== 'undefined' ? window.location.hash : '';
-      const search = typeof window !== 'undefined' ? window.location.search : '';
-      const hasAccessToken = hash.includes('access_token') || hash.includes('id_token');
-      const hasCode = search.includes('code=');
-      const hasError = hash.includes('error') || search.includes('error=');
-      const hasAuthParams = hasAccessToken || hasCode;
-      
-      // 1. Safety check for setup
-      if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
-        console.warn("Supabase: Missing configuration.");
-        if (mounted) setIsLoading(false);
-        return;
-      }
+    // 1. Initial configuration check
+    if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
+      console.warn("Supabase: Missing key.");
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        // 2. Explicit code exchange if using PKCE
-        if (hasCode) {
-          const code = new URLSearchParams(search).get('code');
-          if (code) {
-            console.log("Supabase: Exchanging code for session...");
-            await supabase.auth.exchangeCodeForSession(code);
-          }
+    // 2. Setup the auth listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`Supabase Auth state changed: ${event}`, !!s);
+      
+      if (!mounted) return;
+
+      if (s) {
+        setSession(s);
+        setUser(s.user);
+        
+        // Ensure profile exists
+        try {
+          const p = await ensureProfile(s.user);
+          if (mounted) setProfile(p);
+        } catch (e) {
+          console.error("Non-blocking profile error:", e);
         }
 
-        // 3. Get session (handles implicit flow automatically)
-        const { data: { session: s }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) console.error("Supabase: Session error:", sessionError);
+        // URL cleanup for specific events
+        if (typeof window !== 'undefined' && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+          const url = new URL(window.location.href);
+          const needsCleanup = url.hash.includes('access_token') || 
+                              url.hash.includes('id_token') || 
+                              url.searchParams.has('code');
+          
+          if (needsCleanup) {
+            console.log("Supabase: Cleaning URL after auth event");
+            url.hash = '';
+            ['access_token', 'id_token', 'code', 'error', 'error_description', 'state'].forEach(p => url.searchParams.delete(p));
+            window.history.replaceState(null, '', url.pathname + url.search);
+          }
+        }
+      } else {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsAdmin(false);
+      }
+      
+      // Stop loading after first valid event or session check
+      setIsLoading(false);
+    });
 
-        if (s) {
-          console.log("Supabase: Found session for:", s.user.id);
-          if (mounted) {
-            setSession(s);
-            setUser(s.user);
-            const p = await ensureProfile(s.user);
-            if (mounted) setProfile(p);
-            setIsLoading(false);
-          }
-        } else if (hasAuthParams) {
-          console.log("Supabase: Auth params present but no session yet. Waiting for SDK/StateChange...");
-          
-          // Poll a few times as a backup
-          let found = false;
-          for (let i = 0; i < 5; i++) {
-            await new Promise(r => setTimeout(r, 800));
-            const { data: { session: poleS } } = await supabase.auth.getSession();
-            if (poleS) {
-              console.log("Supabase: Session found after polling.");
-              if (mounted) {
-                setSession(poleS);
-                setUser(poleS.user);
-                const p = await ensureProfile(poleS.user);
-                if (mounted) setProfile(p);
-                setIsLoading(false);
-              }
-              found = true;
-              break;
-            }
-          }
-          
-          if (!found && mounted) {
-            if (hasError) {
-              toast({
-                title: "Greška pri prijavi",
-                description: "Došlo je do greške prilikom prijave na Google.",
-                variant: "destructive",
-              });
-            }
-            setIsLoading(false);
-          }
-        } else {
-          if (mounted) setIsLoading(false);
+    // 3. One-time initial check to kickstart things if listener is slow
+    const checkSession = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (s && mounted) {
+          setSession(s);
+          setUser(s.user);
+          const p = await ensureProfile(s.user);
+          if (mounted) setProfile(p);
         }
       } catch (e) {
-        console.error("Supabase: Initialization exception:", e);
-        if (mounted) setIsLoading(false);
+        console.error("Initial session check error:", e);
+      } finally {
+        if (mounted) {
+          // If no auth params are present, we can stop loading early
+          const hasParams = window.location.hash.includes('access_token') || 
+                           window.location.hash.includes('id_token') || 
+                           window.location.search.includes('code=');
+          if (!hasParams) setIsLoading(false);
+        }
       }
     };
 
-    initializeAuth();
+    checkSession();
 
-    // 3. Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log("Supabase: Auth state changed event:", event, !!currentSession);
-        
-        if (mounted) {
-          if (currentSession) {
-            setSession(currentSession);
-            setUser(currentSession.user);
-            setIsLoading(false);
-            
-            ensureProfile(currentSession.user).then(profileData => {
-              if (mounted) setProfile(profileData);
-            }).catch(e => {
-              console.error("Supabase: Non-blocking profile fetch error in state change:", e);
-            });
-            
-            // Handle hash/query cleaning if we have a session
-            if (typeof window !== 'undefined') {
-              const h = window.location.hash;
-              const s = window.location.search;
-              if (h.includes('access_token') || h.includes('id_token') || s.includes('code=')) {
-                console.log("Supabase: Cleaning URL after successful auth");
-                window.history.replaceState(null, '', window.location.pathname);
-                toast({
-                  title: "Uspešna prijava",
-                  description: "Dobrodošli nazad!",
-                });
-              }
-            }
-          } else {
-            setSession(null);
-            setUser(null);
-            setProfile(null);
-            setIsAdmin(false);
-            // Only stop loading if we're not in the middle of a token check
-            if (typeof window !== 'undefined') {
-              const h = window.location.hash;
-              const s = window.location.search;
-              if (!h.includes('access_token') && !h.includes('id_token') && !s.includes('code=')) {
-                setIsLoading(false);
-              }
-            }
-          }
-        }
+    // 4. Safety timeout
+    const timeout = setTimeout(() => {
+      if (mounted && isLoading) {
+        console.log("Supabase: Safety timeout - stopping loader");
+        setIsLoading(false);
       }
-    );
+    }, 6000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      clearTimeout(timeout);
     };
-  }, [ensureProfile, toast]);
+  }, [ensureProfile]);
 
   useEffect(() => {
     if (session) {

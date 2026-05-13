@@ -38,6 +38,7 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
   );
 
   const isProcessing = hasAuthParams && authLoading;
+  const isIframe = typeof window !== 'undefined' && window !== window.parent;
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -89,6 +90,11 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
               <div className="space-y-2">
                 <h3 className="font-bold text-lg text-foreground">Obrađujemo prijavu...</h3>
                 <p className="text-sm text-muted-foreground">Povezujemo se sa tvojim nalogom.</p>
+                {isIframe && (
+                  <p className="text-xs text-yellow-500 mt-2 italic px-2">
+                    Ako se ovo ne skloni za par sekundi, otvori aplikaciju u novom tabu.
+                  </p>
+                )}
               </div>
               <Button 
                 variant="outline" 
