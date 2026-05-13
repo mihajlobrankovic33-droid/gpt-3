@@ -146,8 +146,8 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
       const { data: { session } } = await supabase.auth.getSession();
       
       // If Supabase is configured, use it
-      if (session?.access_token && import.meta.env.VITE_SUPABASE_URL?.startsWith('http')) {
-        const response = await fetch(CHAT_URL, {
+      if (session?.access_token && isConfigValid()) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

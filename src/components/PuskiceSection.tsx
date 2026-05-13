@@ -199,7 +199,7 @@ export function PuskiceSection() {
       // Attempt 1: Supabase Edge Function
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token && import.meta.env.VITE_SUPABASE_URL?.startsWith('http')) {
+        if (session?.access_token && isConfigValid()) {
           const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-puskica`,
             {

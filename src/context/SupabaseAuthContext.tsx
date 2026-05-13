@@ -174,6 +174,18 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
             const profileData = await ensureProfile(session.user);
             setProfile(profileData);
           }, 0);
+          
+          // If we are in a popup window (from signInWithGoogle), close it after login
+          if (window.opener && window.opener !== window) {
+            // Give a moment for the session to be shared via broadcast channel/storage
+            setTimeout(() => {
+              try {
+                window.close();
+              } catch (e) {
+                console.warn("Could not close popup window automatically", e);
+              }
+            }, 1000);
+          }
         } else {
           setProfile(null);
           setIsAdmin(false);
@@ -202,10 +214,11 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
+          skipBrowserRedirect: true,
         },
       });
       
@@ -214,6 +227,26 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
           title: "Greška pri prijavi",
           description: translateAuthError(error.message),
           variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.url) {
+        // Opening in a new window is safer for iframes as Google blocks being loaded in iframes
+        const authWindow = window.open(data.url, '_blank', 'width=600,height=700');
+        
+        if (!authWindow) {
+          toast({
+            title: "Pop-up blokiran",
+            description: "Molimo omogućite pop-up prozore za ovaj sajt kako biste se prijavili.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        toast({
+          title: "Google prijava",
+          description: "Molimo završite prijavu u novom prozoru koji se otvorio.",
         });
       }
     } catch (err: unknown) {
