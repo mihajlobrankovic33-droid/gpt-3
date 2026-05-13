@@ -1,13 +1,36 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 
-                     import.meta.env.SUPABASE_URL || 
-                     (typeof process !== 'undefined' ? (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) : undefined);
-export const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
-                                import.meta.env.SUPABASE_PUBLISHABLE_KEY || 
-                                import.meta.env.SUPABASE_ANON_KEY ||
-                                (typeof process !== 'undefined' ? (process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY) : undefined);
+declare global {
+  const __SUPABASE_URL__: string | undefined;
+  const __SUPABASE_KEY__: string | undefined;
+}
+
+// We try several sources for the configuration to be as resilient as possible
+const getSupabaseConfig = () => {
+  // 1. Try Vite env variables (prefixed with VITE_)
+  let url = (import.meta.env.VITE_SUPABASE_URL as string) || '';
+  let key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '';
+
+  // 2. Try global constants injected by Vite define
+  if (!url && typeof __SUPABASE_URL__ !== 'undefined') url = __SUPABASE_URL__;
+  if (!key && typeof __SUPABASE_KEY__ !== 'undefined') key = __SUPABASE_KEY__;
+
+  // 3. Try process.env (for compatibility if any)
+  if (!url && typeof process !== 'undefined') url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  if (!key && typeof process !== 'undefined') key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+  // 4. Hardcoded fallback for the URL suggested by the user
+  if (!url || url === '') {
+    url = 'https://qulzmvehcjcwbvhqtitf.supabase.co';
+  }
+
+  return { url, key };
+};
+
+const config = getSupabaseConfig();
+export const SUPABASE_URL = config.url;
+export const SUPABASE_PUBLISHABLE_KEY = config.key;
 
 // Check if credentials are valid before initializing
 export const isConfigValid = () => 

@@ -3,10 +3,14 @@ import { GoogleGenAI } from "@google/genai";
 // Cache the instance
 let aiInstance: GoogleGenAI | null = null;
 
+declare global {
+  const __GEMINI_API_KEY__: string | undefined;
+}
+
 export const getGemini = () => {
   if (!aiInstance) {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   import.meta.env.GEMINI_API_KEY || 
+                   (typeof __GEMINI_API_KEY__ !== 'undefined' ? __GEMINI_API_KEY__ : '') ||
                    (typeof process !== 'undefined' ? (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) : undefined);
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not configured. Please set VITE_GEMINI_API_KEY or GEMINI_API_KEY in your environment.");
