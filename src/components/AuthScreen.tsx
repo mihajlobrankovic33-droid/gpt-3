@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Mail, Eye, EyeOff } from "lucide-react";
 
 export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, session } = useSupabaseAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, session, isLoading: authLoading } = useSupabaseAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +36,8 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
     window.location.hash.includes('error') ||
     window.location.search.includes('code=')
   );
+
+  const isProcessing = hasAuthParams && authLoading;
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -81,23 +83,36 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
 
         {/* OAuth Buttons */}
         <div className="space-y-3 mb-6">
-          {hasAuthParams ? (
+          {isProcessing ? (
             <div className="p-6 bg-card border-2 border-primary rounded-xl text-center space-y-4 animate-in fade-in zoom-in duration-300">
               <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
               <div className="space-y-2">
                 <h3 className="font-bold text-lg text-foreground">Obrađujemo prijavu...</h3>
-                <p className="text-sm text-muted-foreground">Sačekajte trenutak dok vas ne ulogujemo.</p>
+                <p className="text-sm text-muted-foreground">Povezujemo se sa tvojim nalogom.</p>
               </div>
               <Button 
                 variant="outline" 
                 className="w-full mt-2"
                 onClick={recoverSession}
               >
-                Klikni ovde ako potraje predugo
+                Uđi na silu
               </Button>
             </div>
           ) : (
             <>
+              {hasAuthParams && !authLoading && (
+                <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-center">
+                  <p className="text-xs text-yellow-500 mb-2">Prijava nije prepoznata automatski.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full border-yellow-500/50 hover:bg-yellow-500/20"
+                    onClick={recoverSession}
+                  >
+                    Pokušaj ručno
+                  </Button>
+                </div>
+              )}
               <Button
                 type="button"
                 variant="outline"

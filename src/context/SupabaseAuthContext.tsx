@@ -174,83 +174,76 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
       const hasAccessToken = hash.includes('access_token') || hash.includes('id_token');
       const hasCode = search.includes('code=');
       const hasError = hash.includes('error') || search.includes('error=');
-      
       const hasAuthParams = hasAccessToken || hasCode;
       
-      // 1. Check for 'placeholder' key
+      // 1. Safety check for setup
       if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
-        console.warn("Supabase: Using placeholder or empty key. Auth will not work.");
-        toast({
-          title: "Supabase nije konfigurisan",
-          description: "Molimo podesite VITE_SUPABASE_PUBLISHABLE_KEY u podešavanjima.",
-          variant: "destructive",
-        });
+        console.warn("Supabase: Missing configuration.");
+        if (mounted) setIsLoading(false);
+        return;
       }
 
-      // 2. Initial session check
       try {
-        // If there's an auth param in the URL, we wait a bit for the SDK to potentially auto-handle it
-        if (hasAuthParams) {
-          console.log("Supabase: Auth parameters detected in URL. Waiting for SDK processing (PKCE or Implicit)...");
-          // Try to give it up to 2 seconds
-          for (let i = 0; i < 10; i++) {
-            const { data: { session: s } } = await supabase.auth.getSession();
-            if (s) {
-              console.log("Supabase: Session found after polling URL params!");
-              if (mounted) {
-                setSession(s);
-                setUser(s.user);
-                setIsLoading(false);
-                ensureProfile(s.user).then(p => mounted && setProfile(p));
-              }
-              return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 300));
+        // 2. Explicit code exchange if using PKCE
+        if (hasCode) {
+          const code = new URLSearchParams(search).get('code');
+          if (code) {
+            console.log("Supabase: Exchanging code for session...");
+            await supabase.auth.exchangeCodeForSession(code);
           }
         }
 
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        // 3. Get session (handles implicit flow automatically)
+        const { data: { session: s }, error: sessionError } = await supabase.auth.getSession();
         
-        if (error) {
-          console.error("Supabase: Error getting initial session:", error);
-        }
+        if (sessionError) console.error("Supabase: Session error:", sessionError);
 
-        if (mounted) {
-          if (initialSession) {
-            console.log("Supabase: Found initial session for user:", initialSession.user.id);
-            setSession(initialSession);
-            setUser(initialSession.user);
-            ensureProfile(initialSession.user).then(profileData => {
-              if (mounted) setProfile(profileData);
-            }).catch(e => {
-              console.error("Supabase: Non-blocking profile fetch error:", e);
-            });
+        if (s) {
+          console.log("Supabase: Found session for:", s.user.id);
+          if (mounted) {
+            setSession(s);
+            setUser(s.user);
+            const p = await ensureProfile(s.user);
+            if (mounted) setProfile(p);
             setIsLoading(false);
-          } else if (hasError) {
-            console.error("Supabase: Auth error in URL:", hash || search);
-            toast({
-              title: "Greška pri prijavi",
-              description: "Došlo je do greške prilikom prijave preko Google-a.",
-              variant: "destructive",
-            });
-            setIsLoading(false);
-          } else if (!hasAuthParams) {
-            // No token and no session, we can safely stop loading
-            setIsLoading(false);
-          } else {
-            // We have params but still no session after polling. 
-            // Fallback: wait a bit more for onAuthStateChange
-            console.warn("Supabase: Auth params found but session still missing. Waiting for state change...");
-            setTimeout(() => {
-              if (mounted && !session) {
-                console.log("Supabase: Stop waiting for auth params session.");
+          }
+        } else if (hasAuthParams) {
+          console.log("Supabase: Auth params present but no session yet. Waiting for SDK/StateChange...");
+          
+          // Poll a few times as a backup
+          let found = false;
+          for (let i = 0; i < 5; i++) {
+            await new Promise(r => setTimeout(r, 800));
+            const { data: { session: poleS } } = await supabase.auth.getSession();
+            if (poleS) {
+              console.log("Supabase: Session found after polling.");
+              if (mounted) {
+                setSession(poleS);
+                setUser(poleS.user);
+                const p = await ensureProfile(poleS.user);
+                if (mounted) setProfile(p);
                 setIsLoading(false);
               }
-            }, 3000);
+              found = true;
+              break;
+            }
           }
+          
+          if (!found && mounted) {
+            if (hasError) {
+              toast({
+                title: "Greška pri prijavi",
+                description: "Došlo je do greške prilikom prijave na Google.",
+                variant: "destructive",
+              });
+            }
+            setIsLoading(false);
+          }
+        } else {
+          if (mounted) setIsLoading(false);
         }
       } catch (e) {
-        console.error("Supabase: Exception during initial session check:", e);
+        console.error("Supabase: Initialization exception:", e);
         if (mounted) setIsLoading(false);
       }
     };
