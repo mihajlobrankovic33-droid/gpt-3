@@ -92,10 +92,10 @@ serve(async (req) => {
     console.log("Authenticated user:", userId);
 
     const { messages, actionType, imageUrl, customSystemPrompt } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured in Supabase environment secrets");
     }
 
     // Add action-specific instructions if needed
@@ -117,11 +117,6 @@ serve(async (req) => {
     if (customSystemPrompt && customSystemPrompt.trim()) {
       fullSystemPrompt += `\n\n[DODATNE INSTRUKCIJE OD KORISNIKA]: ${customSystemPrompt.trim()}`;
     }
-    
-    const systemMessage = {
-      role: "system",
-      content: fullSystemPrompt,
-    };
 
     // Process messages to handle images
     const processedMessages = messages.map((msg: { role: string; content: string; imageUrl?: string }) => {
@@ -146,41 +141,98 @@ serve(async (req) => {
       return msg;
     });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Convert messages to Gemini format
+    const geminiContents = processedMessages.map((msg: { role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }) => {
+      const role = msg.role === "assistant" ? "model" : "user";
+      if (Array.isArray(msg.content)) {
+        return {
+          role,
+          parts: (msg.content as Array<{ type: string; text?: string; image_url?: { url: string } }>).map((part) => {
+            if (part.type === "text") return { text: part.text };
+            if (part.type === "image_url") {
+              // Extract base64 from data URL
+              const base64Data = part.image_url.url.split(",")[1];
+              const mimeType = part.image_url.url.split(";")[0].split(":")[1];
+              return {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              };
+            }
+            return { text: "" };
+          })
+        };
+      }
+      return {
+        role,
+        parts: [{ text: msg.content }]
+      };
+    });
+
+    // Add system instruction separately if using Gemini 1.5+
+    const body = {
+      system_instruction: {
+        parts: [{ text: fullSystemPrompt }]
+      },
+      contents: geminiContents,
+      generationConfig: {
+        temperature: 0.7,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 2048,
+        responseMimeType: "text/plain",
+      }
+    };
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [systemMessage, ...processedMessages],
-        stream: true,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Too many requests! Please wait a moment and try again." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits needed. Please add credits to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "Sorry, I had trouble thinking. Please try again!" }), {
+      console.error("Gemini API error:", response.status, errorText);
+      return new Response(JSON.stringify({ error: "Greška u AI servisu. Proverite podešavanja." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(response.body, {
+    // Helper to transform Gemini SSE to standard OpenAI-like streaming for the frontend
+    const { readable, writable } = new TransformStream({
+      transform(chunk, controller) {
+        const text = new TextDecoder().decode(chunk);
+        const lines = text.split("\n");
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (content) {
+                // Format as OpenAI delta
+                const openaiChunk = {
+                  choices: [{
+                    delta: { content }
+                  }]
+                };
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
+              }
+            } catch (e) {
+              // Handle partial JSON or other errors gracefully
+            }
+          }
+        }
+      },
+    });
+
+    response.body?.pipeTo(writable);
+    
+    return new Response(readable, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error) {

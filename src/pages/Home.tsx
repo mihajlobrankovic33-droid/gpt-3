@@ -23,7 +23,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, MessageCircle, FileText, Users } from "lucide-react";
 import { InstallPWAButton } from "@/components/InstallPWAButton";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { getGemini, STUDY_CHAT_SYSTEM_PROMPT } from "@/lib/gemini";
+import { type Content, type GenerateContentResponse } from "@google/genai";
 
 interface Message {
   role: "user" | "assistant";
@@ -140,79 +141,125 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
       }
     };
 
+    // First attempt: Supabase Edge Function
     try {
-      // Get the user's session token for authenticated API calls
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("Not authenticated");
-      }
+      
+      // If Supabase is configured, use it
+      if (session?.access_token && import.meta.env.VITE_SUPABASE_URL?.startsWith('http')) {
+        const response = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ messages: newMessages, actionType, customSystemPrompt }),
+        });
 
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ messages: newMessages, actionType, customSystemPrompt }),
-      });
+        if (response.ok && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to get response");
-      }
+          // Set up periodic flush for smooth updates (every 50ms)
+          const flushInterval = setInterval(flushUpdate, 50);
 
-      if (!response.body) {
-        throw new Error("No response body");
-      }
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+              buffer += decoder.decode(value, { stream: true });
 
-      // Set up periodic flush for smooth updates (every 50ms)
-      const flushInterval = setInterval(flushUpdate, 50);
+              let newlineIndex: number;
+              while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+                let line = buffer.slice(0, newlineIndex);
+                buffer = buffer.slice(newlineIndex + 1);
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+                if (line.endsWith("\r")) line = line.slice(0, -1);
+                if (line.startsWith(":") || line.trim() === "") continue;
+                if (!line.startsWith("data: ")) continue;
 
-          buffer += decoder.decode(value, { stream: true });
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === "[DONE]") break;
 
-          let newlineIndex: number;
-          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
-
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (line.startsWith(":") || line.trim() === "") continue;
-            if (!line.startsWith("data: ")) continue;
-
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") break;
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantContent += content;
-                pendingUpdate = true;
-                updateCounter++;
-                
-                // Immediate update every STREAM_BATCH_SIZE chunks for responsiveness
-                if (updateCounter % STREAM_BATCH_SIZE === 0) {
-                  flushUpdate();
+                try {
+                  const parsed = JSON.parse(jsonStr);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    assistantContent += content;
+                    pendingUpdate = true;
+                    updateCounter++;
+                    
+                    if (updateCounter % STREAM_BATCH_SIZE === 0) {
+                      flushUpdate();
+                    }
+                  }
+                } catch {
+                  buffer = line + "\n" + buffer;
+                  break;
                 }
               }
-            } catch {
-              buffer = line + "\n" + buffer;
-              break;
+            }
+          } finally {
+            clearInterval(flushInterval);
+            flushUpdate();
+          }
+          return; // Success with Supabase
+        }
+      }
+    } catch (supabaseError) {
+      console.warn("Supabase chat failed, falling back to direct Gemini:", supabaseError);
+    }
+
+    // Fallback: Direct Gemini SDK call
+    try {
+      const ai = getGemini();
+      
+      // Prepare history
+      const history: Content[] = newMessages.slice(0, -1).map(msg => ({
+        role: msg.role === "assistant" ? "model" as const : "user" as const,
+        parts: [{ text: msg.content }]
+      }));
+
+      const lastMessage = newMessages[newMessages.length - 1];
+      const model = "gemini-3-flash-preview";
+
+      let prompt = lastMessage.content;
+      if (actionType) {
+        prompt = `[ACTION: ${actionType}] ${prompt}`;
+      }
+      if (customSystemPrompt) {
+        prompt = `[USER_CUSTOM_INSTRUCTION: ${customSystemPrompt}] ${prompt}`;
+      }
+
+      const chat = ai.chats.create({
+        model,
+        config: {
+          systemInstruction: STUDY_CHAT_SYSTEM_PROMPT,
+        },
+        history
+      });
+
+      const result = await chat.sendMessageStream({
+        message: prompt
+      });
+
+      const flushInterval = setInterval(flushUpdate, 50);
+      try {
+        for await (const chunk of result) {
+          const content = (chunk as GenerateContentResponse).text;
+          if (content) {
+            assistantContent += content;
+            pendingUpdate = true;
+            updateCounter++;
+            if (updateCounter % STREAM_BATCH_SIZE === 0) {
+              flushUpdate();
             }
           }
         }
       } finally {
         clearInterval(flushInterval);
-        // Final flush to ensure all content is displayed
         flushUpdate();
       }
     } catch (error) {

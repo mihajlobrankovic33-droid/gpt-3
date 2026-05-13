@@ -70,59 +70,59 @@ serve(async (req) => {
     console.log("Authenticated user:", userId);
 
     const { imageUrl, subject } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured in Supabase environment secrets");
     }
 
     if (!imageUrl) {
       throw new Error("Image URL is required");
     }
 
+    // Prepare body for Gemini
+    const base64Data = imageUrl.split(",")[1];
+    const mimeType = imageUrl.split(";")[0].split(":")[1];
+
+    const body = {
+      system_instruction: {
+        parts: [{ text: EXTRACTION_PROMPT }]
+      },
+      contents: [{
+        role: "user",
+        parts: [
+          { text: `Extract study notes from this image for the subject: ${subject || "General"}. Be thorough but concise.` },
+          {
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Data
+            }
+          }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+      }
+    };
+
     // Call AI to extract information from image
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: EXTRACTION_PROMPT,
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extract study notes from this image for the subject: ${subject || "General"}. Be thorough but concise.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageUrl,
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 900,
-        temperature: 0.2,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("AI API error:", errorData);
-      throw new Error(errorData.error?.message || "AI extraction failed");
+      const errorText = await response.text();
+      console.error("Gemini API error:", response.status, errorText);
+      throw new Error("AI extraction failed via Gemini API");
     }
 
     const data = await response.json();
-    let extractedContent = data.choices?.[0]?.message?.content;
+    let extractedContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!extractedContent) {
       throw new Error("No content extracted from image");

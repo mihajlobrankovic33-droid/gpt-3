@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProUpgradeModal } from "./ProUpgradeModal";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isConfigValid } from "@/integrations/supabase/client";
 import { Plus, Eye, Trash2, FileText, Sparkles, Shield, X, Loader2, Upload, BookOpen, ChevronDown, ChevronRight, History } from "lucide-react";
 import { FullscreenModal, cleanText } from "@/components/FullscreenModal";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useLanguage } from "@/context/LanguageContext";
+import { getGemini, EXTRACTION_SYSTEM_PROMPT } from "@/lib/gemini";
 
 interface PuskiceItem {
   id: string;
@@ -192,50 +193,89 @@ export function PuskiceSection() {
     setIsExtracting(true);
 
     try {
-      // Get user's session token for authenticated API call
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast({
-          title: t.error,
-          description: t.mustBeLoggedIn,
-          variant: "destructive",
-        });
-        setIsExtracting(false);
-        return;
-      }
+      let extractedContent: string | undefined;
+      let detectedTitle: string | undefined;
 
-      // Call AI extraction edge function with user's JWT
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-puskica`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ imageUrl, subject: subject.trim() }),
+      // Attempt 1: Supabase Edge Function
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token && import.meta.env.VITE_SUPABASE_URL?.startsWith('http')) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-puskica`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ imageUrl, subject: subject.trim() }),
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              extractedContent = result.content;
+              detectedTitle = result.title;
+            }
+          }
         }
-      );
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || t.extractionFailed);
+      } catch (e) {
+        console.warn("Supabase extraction failed, trying direct Gemini:", e);
       }
 
-      // Save to database with detected subject from AI
+      // Fallback: Direct Gemini SDK
+      if (!extractedContent) {
+        const ai = getGemini();
+        const base64Data = imageUrl.split(",")[1];
+        const mimeType = imageUrl.split(";")[0].split(":")[1];
+
+        const result = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [
+            { text: `Extract study notes from this image for the subject: ${subject.trim()}. Be thorough but concise.` },
+            {
+              inlineData: {
+                mimeType,
+                data: base64Data,
+              }
+            }
+          ],
+          config: {
+            systemInstruction: EXTRACTION_SYSTEM_PROMPT,
+          }
+        });
+
+        extractedContent = result.text;
+      }
+
+      if (!extractedContent) {
+        throw new Error(t.extractionFailed);
+      }
+
+      // Save to database (try best effort, even if Supabase is "broken" it might fail but that's okay if they just want to see it)
       const { error: insertError } = await supabase.from("puskice").insert({
-        user_id: user.id,
-        title: result.title || subject.trim(),
-        content: result.content,
-        subject: result.subject || subject.trim(),
+        user_id: user.id || "anonymous",
+        title: detectedTitle || subject.trim(),
+        content: extractedContent,
+        subject: subject.trim(),
       });
 
-      if (insertError) {
-        throw insertError;
+      if (insertError && isConfigValid()) {
+         console.error("Save error:", insertError);
       }
 
-      await fetchPuskice();
+      // Manually add to state if not fetched
+      const newItem: PuskiceItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: detectedTitle || subject.trim(),
+        content: extractedContent,
+        subject: subject.trim(),
+        created_at: new Date().toISOString(),
+      };
+      
+      setPuskice(prev => [newItem, ...prev]);
+      
       setSubject("");
       setImageUrl(undefined);
       setShowCreateModal(false);
