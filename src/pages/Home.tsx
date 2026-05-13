@@ -25,6 +25,7 @@ import { InstallPWAButton } from "@/components/InstallPWAButton";
 import { Button } from "@/components/ui/button";
 import { getGemini, STUDY_CHAT_SYSTEM_PROMPT } from "@/lib/gemini";
 import { type Content, type GenerateContentResponse } from "@google/genai";
+import { supabase, isConfigValid } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
