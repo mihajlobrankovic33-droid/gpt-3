@@ -170,8 +170,12 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Supabase: Initializing auth...");
       
       const hash = typeof window !== 'undefined' ? window.location.hash : '';
-      const hasAccessToken = hash.includes('access_token');
-      const hasError = hash.includes('error');
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      const hasAccessToken = hash.includes('access_token') || hash.includes('id_token');
+      const hasCode = search.includes('code=');
+      const hasError = hash.includes('error') || search.includes('error=');
+      
+      const hasAuthParams = hasAccessToken || hasCode;
       
       // 1. Check for 'placeholder' key
       if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
@@ -185,14 +189,14 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 2. Initial session check
       try {
-        // If there's an access token in the hash, we wait a bit for the SDK to potentially auto-handle it
-        if (hasAccessToken) {
-          console.log("Supabase: Access token detected in hash. Waiting for SDK processing...");
-          // Try to give it up to 1 second
-          for (let i = 0; i < 5; i++) {
+        // If there's an auth param in the URL, we wait a bit for the SDK to potentially auto-handle it
+        if (hasAuthParams) {
+          console.log("Supabase: Auth parameters detected in URL. Waiting for SDK processing (PKCE or Implicit)...");
+          // Try to give it up to 2 seconds
+          for (let i = 0; i < 10; i++) {
             const { data: { session: s } } = await supabase.auth.getSession();
             if (s) {
-              console.log("Supabase: Session found after polling hash!");
+              console.log("Supabase: Session found after polling URL params!");
               if (mounted) {
                 setSession(s);
                 setUser(s.user);
@@ -223,23 +227,23 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
             });
             setIsLoading(false);
           } else if (hasError) {
-            console.error("Supabase: Auth error in hash:", hash);
+            console.error("Supabase: Auth error in URL:", hash || search);
             toast({
               title: "Greška pri prijavi",
               description: "Došlo je do greške prilikom prijave preko Google-a.",
               variant: "destructive",
             });
             setIsLoading(false);
-          } else if (!hasAccessToken) {
+          } else if (!hasAuthParams) {
             // No token and no session, we can safely stop loading
             setIsLoading(false);
           } else {
-            // We have a token but still no session after polling. 
+            // We have params but still no session after polling. 
             // Fallback: wait a bit more for onAuthStateChange
-            console.warn("Supabase: Token found but session still missing. Waiting for state change...");
+            console.warn("Supabase: Auth params found but session still missing. Waiting for state change...");
             setTimeout(() => {
               if (mounted && !session) {
-                console.log("Supabase: Stop waiting for token session.");
+                console.log("Supabase: Stop waiting for auth params session.");
                 setIsLoading(false);
               }
             }, 3000);
@@ -270,14 +274,18 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
               console.error("Supabase: Non-blocking profile fetch error in state change:", e);
             });
             
-            // Handle hash cleaning if we have a session
-            if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token'))) {
-              console.log("Supabase: Cleaning hash after successful auth");
-              window.history.replaceState(null, '', window.location.pathname);
-              toast({
-                title: "Uspešna prijava",
-                description: "Dobrodošli nazad!",
-              });
+            // Handle hash/query cleaning if we have a session
+            if (typeof window !== 'undefined') {
+              const h = window.location.hash;
+              const s = window.location.search;
+              if (h.includes('access_token') || h.includes('id_token') || s.includes('code=')) {
+                console.log("Supabase: Cleaning URL after successful auth");
+                window.history.replaceState(null, '', window.location.pathname);
+                toast({
+                  title: "Uspešna prijava",
+                  description: "Dobrodošli nazad!",
+                });
+              }
             }
           } else {
             setSession(null);
@@ -285,9 +293,12 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
             setProfile(null);
             setIsAdmin(false);
             // Only stop loading if we're not in the middle of a token check
-            const hash = typeof window !== 'undefined' ? window.location.hash : '';
-            if (!hash.includes('access_token')) {
-              setIsLoading(false);
+            if (typeof window !== 'undefined') {
+              const h = window.location.hash;
+              const s = window.location.search;
+              if (!h.includes('access_token') && !h.includes('id_token') && !s.includes('code=')) {
+                setIsLoading(false);
+              }
             }
           }
         }
@@ -309,23 +320,19 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithGoogle = async () => {
     try {
       console.log("Supabase: Initiating Google login...");
-      
-      // Use the simplest possible configuration
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
-          skipBrowserRedirect: false, // Ensure standard browser redirect
         },
       });
 
       if (error) throw error;
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       console.error("Supabase login error:", err);
       toast({
         title: "Greška pri prijavi",
-        description: translateAuthError(message),
+        description: translateAuthError(err instanceof Error ? err.message : String(err)),
         variant: "destructive",
       });
     }
