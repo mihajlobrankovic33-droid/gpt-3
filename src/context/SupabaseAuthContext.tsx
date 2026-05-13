@@ -169,7 +169,9 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
     const initializeAuth = async () => {
       console.log("Supabase: Initializing auth...");
       
-      const hasAccessToken = typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token');
+      const hash = typeof window !== 'undefined' ? window.location.hash : '';
+      const hasAccessToken = hash.includes('access_token');
+      const hasError = hash.includes('error');
       
       // 1. Check for 'placeholder' key
       if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
@@ -183,10 +185,24 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 2. Initial session check
       try {
-        // If there's an access token in the hash, we give the SDK a moment to process it
+        // If there's an access token in the hash, we wait a bit for the SDK to potentially auto-handle it
         if (hasAccessToken) {
-          console.log("Supabase: Found access token in URL, waiting for SDK to parse it...");
-          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log("Supabase: Access token detected in hash. Waiting for SDK processing...");
+          // Try to give it up to 1 second
+          for (let i = 0; i < 5; i++) {
+            const { data: { session: s } } = await supabase.auth.getSession();
+            if (s) {
+              console.log("Supabase: Session found after polling hash!");
+              if (mounted) {
+                setSession(s);
+                setUser(s.user);
+                setIsLoading(false);
+                ensureProfile(s.user).then(p => mounted && setProfile(p));
+              }
+              return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
 
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
@@ -205,17 +221,28 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
             }).catch(e => {
               console.error("Supabase: Non-blocking profile fetch error:", e);
             });
-          }
-          
-          // Only stop loading if we don't expect a session from the hash
-          // or if we already found one
-          if (!hasAccessToken || initialSession) {
+            setIsLoading(false);
+          } else if (hasError) {
+            console.error("Supabase: Auth error in hash:", hash);
+            toast({
+              title: "Greška pri prijavi",
+              description: "Došlo je do greške prilikom prijave preko Google-a.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+          } else if (!hasAccessToken) {
+            // No token and no session, we can safely stop loading
             setIsLoading(false);
           } else {
-            // If we have a hash but no session yet, we wait a bit more for onAuthStateChange
+            // We have a token but still no session after polling. 
+            // Fallback: wait a bit more for onAuthStateChange
+            console.warn("Supabase: Token found but session still missing. Waiting for state change...");
             setTimeout(() => {
-              if (mounted) setIsLoading(false);
-            }, 2000);
+              if (mounted && !session) {
+                console.log("Supabase: Stop waiting for token session.");
+                setIsLoading(false);
+              }
+            }, 3000);
           }
         }
       } catch (e) {
@@ -243,8 +270,9 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
               console.error("Supabase: Non-blocking profile fetch error in state change:", e);
             });
             
-            // Handle hash cleaning if we are on a login page and just got a session
-            if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token'))) {
+            // Handle hash cleaning if we have a session
+            if (typeof window !== 'undefined' && window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token'))) {
+              console.log("Supabase: Cleaning hash after successful auth");
               window.history.replaceState(null, '', window.location.pathname);
               toast({
                 title: "Uspešna prijava",
@@ -256,7 +284,11 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
             setProfile(null);
             setIsAdmin(false);
-            // Don't set isLoading false here, initializeAuth handles the initial transition
+            // Only stop loading if we're not in the middle of a token check
+            const hash = typeof window !== 'undefined' ? window.location.hash : '';
+            if (!hash.includes('access_token')) {
+              setIsLoading(false);
+            }
           }
         }
       }
