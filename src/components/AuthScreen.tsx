@@ -18,22 +18,32 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
-
-    const result = isLogin 
-      ? await signInWithEmail(email, password)
-      : await signUpWithEmail(email, password);
-
-    if (result.error) {
-      setError(result.error);
+    if (!email || !password) {
+      setError("Unesi email i lozinku.");
+      return;
     }
-    setIsLoading(false);
+    
+    setIsLoading(true);
+    try {
+      const result = isLogin 
+        ? await signInWithEmail(email, password)
+        : await signUpWithEmail(email, password);
+
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+      }
+      // Session change will trigger refresh via context
+    } catch (err) {
+      console.error(err);
+      setError("Došlo je do neočekivane greške.");
+      setIsLoading(false);
+    }
   };
 
   const hasAuthParams = typeof window !== 'undefined' && (
     window.location.hash.includes('access_token') || 
     window.location.hash.includes('id_token') || 
-    window.location.hash.includes('error') ||
     window.location.search.includes('code=')
   );
 
@@ -42,32 +52,35 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       await signInWithGoogle();
     } catch (e) {
       console.error(e);
+      setError("Google prijava nije uspela.");
       setIsLoading(false);
     }
   };
 
   const recoverSession = async () => {
     setIsLoading(true);
+    setError(null);
     console.log("Supabase: Manual session recovery triggered");
     try {
-      // One last try to get the session manually
-      const { data, error: sessionError } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession();
       if (data.session) {
-        console.log("Supabase: Manual recovery successful!");
         window.location.reload();
         return;
       }
-      if (sessionError) console.error("Supabase: Manual recovery error:", sessionError);
     } catch (e) {
-      console.error("Supabase: Manual recovery exception:", e);
+      console.error(e);
     }
     
-    // Fallback: full reload without hash/query
-    window.location.href = window.location.origin + window.location.pathname;
+    // Clear tokens and let user login manually
+    window.history.replaceState(null, '', window.location.pathname);
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   return (

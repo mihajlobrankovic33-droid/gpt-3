@@ -166,38 +166,46 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // 1. Initial configuration check
     if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
       console.warn("Supabase: Configuration missing.");
       setIsLoading(false);
       return;
     }
 
-    // 2. Setup the listener FIRST to catch all events
+    // 1. Set up the listener IMMEDIATELY
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      if (!mounted) return;
       console.log(`Supabase Auth state changed: ${event}`, !!s);
+      
+      if (!mounted) return;
 
       if (s) {
         setSession(s);
         setUser(s.user);
         
-        // Fetch or create profile
+        // Fetch profile
         try {
           const p = await ensureProfile(s.user);
           if (mounted) setProfile(p);
         } catch (e) {
-          console.error("Non-blocking profile error:", e);
+          console.error("Profile sync error:", e);
         }
 
-        // URL cleanup for successful sign-ins
+        // URL cleanup
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          const hash = window.location.hash;
-          const search = window.location.search;
-          if (hash.includes('access_token') || hash.includes('id_token') || search.includes('code=')) {
-            console.log("Supabase: Cleaning up URL auth params");
-            window.history.replaceState(null, '', window.location.pathname);
+          const params = ['access_token', 'id_token', 'code', 'error', 'error_description', 'state'];
+          const url = new URL(window.location.href);
+          let changed = false;
+          params.forEach(p => {
+            if (url.searchParams.has(p)) {
+              url.searchParams.delete(p);
+              changed = true;
+            }
+          });
+          if (url.hash && (url.hash.includes('access_token') || url.hash.includes('id_token'))) {
+            url.hash = '';
+            changed = true;
           }
+          if (changed) window.history.replaceState(null, '', url.pathname + url.search);
         }
       } else {
         setSession(null);
@@ -205,57 +213,48 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(null);
         setIsAdmin(false);
       }
-
-      // Stop loading after the first valid event or check
+      
       setIsLoading(false);
     });
 
-    // 3. Check for initial session explicitly
-    const checkInitialSession = async () => {
+    // 2. Immediate check
+    const initSession = async () => {
       try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        const { data: { session: s }, error } = await supabase.auth.getSession();
         if (error) console.error("Initial getSession error:", error);
-
-        if (mounted) {
-          if (initialSession) {
-            setSession(initialSession);
-            setUser(initialSession.user);
-            const p = await ensureProfile(initialSession.user);
-            if (mounted) setProfile(p);
-            setIsLoading(false);
-          } else {
-            // Only stop loading if we don't have tokens in the URL (which means the listener will handle it)
-            const hasTokens = window.location.hash.includes('access_token') || 
-                             window.location.hash.includes('id_token') || 
-                             window.location.search.includes('code=');
-            
-            if (!hasTokens) {
-              setIsLoading(false);
-            }
-          }
+        
+        if (s && mounted) {
+          setSession(s);
+          setUser(s.user);
+          const p = await ensureProfile(s.user);
+          if (mounted) setProfile(p);
+          setIsLoading(false);
+        } else if (!window.location.hash.includes('access_token') && !window.location.search.includes('code=')) {
+          // Only stop loading if we are NOT in an auth redirect flow
+          setIsLoading(false);
         }
       } catch (err) {
-        console.error("Supabase init exception:", err);
+        console.error("Auth init exception:", err);
         if (mounted) setIsLoading(false);
       }
     };
 
-    checkInitialSession();
+    initSession();
 
-    // 4. Safety timeout for loading state
+    // 3. Robust timeout
     const timeout = setTimeout(() => {
       if (mounted && isLoading) {
-        console.warn("Supabase: Safety timeout - clearing loader");
+        console.warn("Supabase: Auth loading safety timeout reached");
         setIsLoading(false);
       }
-    }, 6000);
+    }, 8000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [ensureProfile]);
+  }, [ensureProfile, isLoading]);
 
   useEffect(() => {
     if (session) {
