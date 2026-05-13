@@ -201,19 +201,36 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   }, [session, checkAdminStatus]);
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    
-    if (error) {
-      toast({
-        title: "Greška",
-        description: translateAuthError(error.message),
-        variant: "destructive",
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
+      
+      if (error) {
+        toast({
+          title: "Greška pri prijavi",
+          description: translateAuthError(error.message),
+          variant: "destructive",
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("Supabase is not configured")) {
+        toast({
+          title: "Supabase nije podešen",
+          description: "Molimo podesite VITE_SUPABASE_URL i VITE_SUPABASE_PUBLISHABLE_KEY u podešavanjima projekta.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Neočekivana greška",
+          description: translateAuthError(message),
+          variant: "destructive",
+        });
+      }
     }
   };
 
