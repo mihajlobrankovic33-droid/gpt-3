@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
@@ -164,71 +164,109 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   const proStatus = checkProStatus(profile);
 
   useEffect(() => {
-    // Check if we have a hash fragment (OAuth redirect)
-    const handleHashFragment = async () => {
-      if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token') || window.location.hash.includes('error'))) {
-        console.log("Supabase: Detected hash fragment, attempting to parse session...");
-        try {
-          // Setting the session manually if needed, but getSession should handle it
-          const { data, error } = await supabase.auth.getSession();
-          if (error) console.error("Supabase: Error parsing session from hash:", error);
-          if (data.session) {
-            console.log("Supabase: Successfully parsed session from hash");
-            setSession(data.session);
-            setUser(data.session.user);
-            // Clear the hash for a cleaner URL
-            window.history.replaceState(null, '', window.location.pathname);
-          }
-        } catch (e) {
-          console.error("Supabase: Exception parsing session from hash:", e);
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      console.log("Supabase: Initializing auth...");
+      
+      const hasAccessToken = typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token');
+      
+      // 1. Check for 'placeholder' key
+      if (SUPABASE_PUBLISHABLE_KEY === 'placeholder' || !SUPABASE_PUBLISHABLE_KEY) {
+        console.warn("Supabase: Using placeholder or empty key. Auth will not work.");
+        toast({
+          title: "Supabase nije konfigurisan",
+          description: "Molimo podesite VITE_SUPABASE_PUBLISHABLE_KEY u podešavanjima.",
+          variant: "destructive",
+        });
+      }
+
+      // 2. Initial session check
+      try {
+        // If there's an access token in the hash, we give the SDK a moment to process it
+        if (hasAccessToken) {
+          console.log("Supabase: Found access token in URL, waiting for SDK to parse it...");
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
+
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Supabase: Error getting initial session:", error);
+        }
+
+        if (mounted) {
+          if (initialSession) {
+            console.log("Supabase: Found initial session for user:", initialSession.user.id);
+            setSession(initialSession);
+            setUser(initialSession.user);
+            ensureProfile(initialSession.user).then(profileData => {
+              if (mounted) setProfile(profileData);
+            }).catch(e => {
+              console.error("Supabase: Non-blocking profile fetch error:", e);
+            });
+          }
+          
+          // Only stop loading if we don't expect a session from the hash
+          // or if we already found one
+          if (!hasAccessToken || initialSession) {
+            setIsLoading(false);
+          } else {
+            // If we have a hash but no session yet, we wait a bit more for onAuthStateChange
+            setTimeout(() => {
+              if (mounted) setIsLoading(false);
+            }, 2000);
+          }
+        }
+      } catch (e) {
+        console.error("Supabase: Exception during initial session check:", e);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    handleHashFragment();
+    initializeAuth();
 
+    // 3. Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Supabase: Auth state changed:", event, !!session);
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, currentSession) => {
+        console.log("Supabase: Auth state changed event:", event, !!currentSession);
         
-        if (session?.user) {
-          setTimeout(async () => {
-            const profileData = await ensureProfile(session.user);
-            setProfile(profileData);
-          }, 0);
-          
-          // If we are in a popup window (from signInWithGoogle), close it after login
-          if (window.opener && window.opener !== window) {
-            // Give a moment for the session to be shared via broadcast channel/storage
-            setTimeout(() => {
-              try {
-                window.close();
-              } catch (e) {
-                console.warn("Could not close popup window automatically", e);
-              }
-            }, 1000);
+        if (mounted) {
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+            setIsLoading(false);
+            
+            ensureProfile(currentSession.user).then(profileData => {
+              if (mounted) setProfile(profileData);
+            }).catch(e => {
+              console.error("Supabase: Non-blocking profile fetch error in state change:", e);
+            });
+            
+            // Handle hash cleaning if we are on a login page and just got a session
+            if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token'))) {
+              window.history.replaceState(null, '', window.location.pathname);
+              toast({
+                title: "Uspešna prijava",
+                description: "Dobrodošli nazad!",
+              });
+            }
+          } else {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setIsAdmin(false);
+            // Don't set isLoading false here, initializeAuth handles the initial transition
           }
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        ensureProfile(session.user).then(setProfile);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [ensureProfile]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [ensureProfile, toast]);
 
   useEffect(() => {
     if (session) {
@@ -238,34 +276,21 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUri = window.location.origin;
-      console.log("Supabase: Initiating Google login with redirect:", redirectUri);
-
-      // We remove skipBrowserRedirect to let the SDK handle the transition
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      console.log("Supabase: Initiating Google login...");
+      
+      // Use the simplest possible configuration
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUri,
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: false, // Ensure standard browser redirect
         },
       });
 
-      if (error) {
-        console.error("Supabase OAuth error:", error);
-        toast({
-          title: "Greška pri prijavi",
-          description: translateAuthError(error.message),
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // If for some reason the SDK didn't redirect automatically, we do it here
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      if (error) throw error;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error("Unexpected login error:", err);
+      console.error("Supabase login error:", err);
       toast({
         title: "Greška pri prijavi",
         description: translateAuthError(message),

@@ -50,6 +50,12 @@ const getSupabaseConfig = () => {
     url = 'https://qulzmvehcjcwbvhqtitf.supabase.co';
   }
 
+  // Debug logging
+  if (typeof window !== 'undefined' && window.location.search.includes('debug=true')) {
+    console.log("Supabase URL resolved to:", url);
+    console.log("Supabase Key length:", key?.length || 0);
+  }
+
   return { url, key };
 };
 

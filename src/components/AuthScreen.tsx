@@ -6,7 +6,7 @@ import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
 import { Loader2, Mail, Eye, EyeOff } from "lucide-react";
 
 export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useSupabaseAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, session } = useSupabaseAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,6 +29,15 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
     setIsLoading(false);
   };
 
+  const hasHash = typeof window !== 'undefined' && (window.location.hash.includes('access_token') || window.location.hash.includes('error'));
+
+  const recoverSession = async () => {
+    setIsLoading(true);
+    // Just reload the page, but let's log first
+    console.log("Supabase: Manual session recovery triggered");
+    window.location.reload();
+  };
+
   return (
     <div ref={ref} className="fixed inset-0 z-50 bg-background flex items-center justify-center p-4">
       {/* Subtle gradient overlay */}
@@ -43,6 +52,16 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
 
         {/* OAuth Buttons */}
         <div className="space-y-3 mb-6">
+          {hasHash && (
+            <Button
+              variant="secondary"
+              className="w-full mb-4 animate-pulse border-2 border-primary"
+              onClick={recoverSession}
+              disabled={isLoading}
+            >
+              Uđi u aplikaciju (detektovana je prijava)
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
