@@ -13,16 +13,31 @@ const getSupabaseConfig = () => {
   let key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) || '';
 
   // 2. Try global constants injected by Vite define
-  if (!url && typeof __SUPABASE_URL__ !== 'undefined') url = __SUPABASE_URL__;
-  if (!key && typeof __SUPABASE_KEY__ !== 'undefined') key = __SUPABASE_KEY__;
+  if (!url && typeof __SUPABASE_URL__ !== 'undefined' && __SUPABASE_URL__) url = __SUPABASE_URL__;
+  if (!key && typeof __SUPABASE_KEY__ !== 'undefined' && __SUPABASE_KEY__) key = __SUPABASE_KEY__;
 
   // 3. Try process.env (for compatibility if any)
-  if (!url && typeof process !== 'undefined') url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  if (!key && typeof process !== 'undefined') key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  try {
+    if (!url && typeof process !== 'undefined' && process.env) {
+      url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    }
+    if (!key && typeof process !== 'undefined' && process.env) {
+      key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
+    }
+  } catch (e) {
+    // Ignore process errors
+  }
 
   // 4. Hardcoded fallback for the URL suggested by the user
   if (!url || url === '') {
     url = 'https://qulzmvehcjcwbvhqtitf.supabase.co';
+  }
+
+  // Debug logging (vague for security)
+  if (typeof window !== 'undefined') {
+    if (!url) console.debug("Supabase URL is empty");
+    if (!key) console.debug("Supabase Key is empty");
+    if (url && key) console.debug("Supabase configuration found, initializing...");
   }
 
   return { url, key };
