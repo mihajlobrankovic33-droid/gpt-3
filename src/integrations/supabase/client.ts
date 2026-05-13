@@ -33,10 +33,19 @@ export const SUPABASE_URL = config.url;
 export const SUPABASE_PUBLISHABLE_KEY = config.key;
 
 // Check if credentials are valid before initializing
-export const isConfigValid = () => 
-  !!(SUPABASE_URL && 
-  SUPABASE_URL.startsWith('http') && 
-  SUPABASE_PUBLISHABLE_KEY);
+export const isConfigValid = () => {
+  const hasUrl = !!SUPABASE_URL && SUPABASE_URL.length > 0;
+  const isUrlValid = hasUrl && SUPABASE_URL.startsWith('http');
+  const hasKey = !!SUPABASE_PUBLISHABLE_KEY && SUPABASE_PUBLISHABLE_KEY.length > 0;
+  
+  if (typeof window !== 'undefined') {
+    if (!hasUrl) console.debug("Supabase: URL missing");
+    else if (!isUrlValid) console.debug("Supabase: URL invalid format", SUPABASE_URL);
+    if (!hasKey) console.debug("Supabase: Key missing");
+  }
+  
+  return isUrlValid && hasKey;
+};
 
 const configValid = isConfigValid();
 
