@@ -164,8 +164,32 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
   const proStatus = checkProStatus(profile);
 
   useEffect(() => {
+    // Check if we have a hash fragment (OAuth redirect)
+    const handleHashFragment = async () => {
+      if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('id_token') || window.location.hash.includes('error'))) {
+        console.log("Supabase: Detected hash fragment, attempting to parse session...");
+        try {
+          // Setting the session manually if needed, but getSession should handle it
+          const { data, error } = await supabase.auth.getSession();
+          if (error) console.error("Supabase: Error parsing session from hash:", error);
+          if (data.session) {
+            console.log("Supabase: Successfully parsed session from hash");
+            setSession(data.session);
+            setUser(data.session.user);
+            // Clear the hash for a cleaner URL
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (e) {
+          console.error("Supabase: Exception parsing session from hash:", e);
+        }
+      }
+    };
+
+    handleHashFragment();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log("Supabase: Auth state changed:", event, !!session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -214,22 +238,17 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      // Create a specific redirect URL for this environment
-      // We use origin but we ensure it ends with / if needed
-      const redirectUri = window.location.origin.endsWith('/') 
-        ? window.location.origin 
-        : `${window.location.origin}/`;
-      
+      const redirectUri = window.location.origin;
       console.log("Supabase: Initiating Google login with redirect:", redirectUri);
 
+      // We remove skipBrowserRedirect to let the SDK handle the transition
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUri,
-          skipBrowserRedirect: true,
         },
       });
-      
+
       if (error) {
         console.error("Supabase OAuth error:", error);
         toast({
@@ -240,38 +259,9 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
+      // If for some reason the SDK didn't redirect automatically, we do it here
       if (data?.url) {
-        console.log("Supabase: Opening OAuth URL:", data.url);
-        
-        // Check if the URL is just our own site (misconfiguration)
-        if (data.url.includes(window.location.hostname) && !data.url.includes('supabase.co')) {
-          console.warn("Supabase returned a URL that points back to current site instead of Google login.");
-          toast({
-            title: "Problem sa podešavanjem",
-            description: "Supabase vraća pogrešan URL. Proverite da li je Google provajder omogućen u Supabase dashboard-u.",
-            variant: "destructive",
-          });
-          // Continue anyway to see where it goes
-        }
-
-        // Opening in a new window is safer for iframes as Google blocks being loaded in iframes
-        const authWindow = window.open(data.url, 'SupabaseAuth', 'width=600,height=700');
-        
-        if (!authWindow) {
-          toast({
-            title: "Pop-up blokiran",
-            description: "Molimo omogućite pop-up prozore za ovaj sajt kako biste se prijavili.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        toast({
-          title: "Google prijava",
-          description: "Molimo završite prijavu u novom prozoru. VAŽNO: Proverite da li ste u Supabase dashboard-u podesili 'Site URL' na adresu ovog sajta.",
-        });
-      } else {
-        throw new Error("Supabase nije vratio URL za prijavu.");
+        window.location.href = data.url;
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
