@@ -214,15 +214,20 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
+      // Create a specific redirect URL for this environment
+      const redirectUri = window.location.origin;
+      console.log("Supabase: Initiating Google login with redirect:", redirectUri);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectUri,
           skipBrowserRedirect: true,
         },
       });
       
       if (error) {
+        console.error("Supabase OAuth error:", error);
         toast({
           title: "Greška pri prijavi",
           description: translateAuthError(error.message),
@@ -232,6 +237,7 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data?.url) {
+        console.log("Supabase: Opening OAuth URL:", data.url);
         // Opening in a new window is safer for iframes as Google blocks being loaded in iframes
         const authWindow = window.open(data.url, '_blank', 'width=600,height=700');
         
@@ -246,24 +252,19 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
 
         toast({
           title: "Google prijava",
-          description: "Molimo završite prijavu u novom prozoru koji se otvorio.",
+          description: "Molimo završite prijavu u novom prozoru. Ako se pojavi 'localhost:3000' greška, proverite podešavanja u Supabase dashboard-u.",
         });
+      } else {
+        throw new Error("Supabase nije vratio URL za prijavu.");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("Supabase is not configured")) {
-        toast({
-          title: "Supabase nije podešen",
-          description: "Molimo podesite VITE_SUPABASE_URL i VITE_SUPABASE_PUBLISHABLE_KEY u podešavanjima projekta.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Neočekivana greška",
-          description: translateAuthError(message),
-          variant: "destructive",
-        });
-      }
+      console.error("Unexpected login error:", err);
+      toast({
+        title: "Greška pri prijavi",
+        description: translateAuthError(message),
+        variant: "destructive",
+      });
     }
   };
 
