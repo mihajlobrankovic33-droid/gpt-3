@@ -244,17 +244,21 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
         provider: 'google',
         options: {
           redirectTo: window.location.origin,
+          skipBrowserRedirect: false,
         },
       });
 
       if (error) throw error;
     } catch (err: unknown) {
       console.error("Supabase login error:", err);
+      const message = translateAuthError(err instanceof Error ? err.message : String(err));
       toast({
         title: "Greška pri prijavi",
-        description: translateAuthError(err instanceof Error ? err.message : String(err)),
+        description: message,
         variant: "destructive",
       });
+      // Re-throw so the UI can reset its loading state
+      throw new Error(message);
     }
   };
 

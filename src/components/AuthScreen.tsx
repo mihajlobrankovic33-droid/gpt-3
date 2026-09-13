@@ -62,7 +62,8 @@ export const AuthScreen = forwardRef<HTMLDivElement>((_, ref) => {
       await signInWithGoogle();
     } catch (e) {
       console.error(e);
-      setError("Google prijava nije uspela.");
+      setError(e instanceof Error ? e.message : "Google prijava nije uspela.");
+    } finally {
       setIsLoading(false);
     }
   };
