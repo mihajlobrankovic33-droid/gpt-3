@@ -41,13 +41,13 @@ const getSupabaseConfig = () => {
 
   // Hardcoded fallback for the URL suggested by the user
   if (!url || url === '' || url === 'undefined' || url === 'null' || !url.startsWith('http')) {
-    url = 'https://qulzmvehcjcwbvhqtitf.supabase.co';
+    url = 'https://ljauuejvmnufzqjwybrc.supabase.co';
   }
 
   // Final sanitization: if the URL looks like a key (long string, no dots/slashes), it's probably wrong
   if (url.length > 50 && !url.includes('.') && !url.includes('/')) {
     // This is likely a key being passed as a URL
-    url = 'https://qulzmvehcjcwbvhqtitf.supabase.co';
+    url = 'https://ljauuejvmnufzqjwybrc.supabase.co';
   }
 
   // Debug logging
