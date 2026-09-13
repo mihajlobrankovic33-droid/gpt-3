@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
         display: "standalone",
         orientation: "portrait",
         scope: "/",
+        id: "/",
         // Allow users to rename when adding to home screen
         prefer_related_applications: false,
         start_url: "/",

@@ -3,6 +3,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Native-app feel: prevent pull-to-refresh, rubber-band zoom, and the URL bar jarring */
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS: avoid the address bar shrinking the layout in standalone mode */
+@supports (height: 100dvh) {
+  .app-shell {
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+}
+
+/* Disable text selection only in the app (inputs stay selectable) */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Safe area support for mobile devices */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);

@@ -21,6 +21,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, MessageCircle, FileText, Users } from "lucide-react";
 import { InstallPWAButton } from "@/components/InstallPWAButton";
+import { InstallBanner } from "@/components/InstallBanner";
 import { Button } from "@/components/ui/button";
 import { getGemini, STUDY_CHAT_SYSTEM_PROMPT } from "@/lib/gemini";
 import { type Content, type GenerateContentResponse } from "@google/genai";
@@ -396,9 +397,10 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   }
 
   return (
-    <div className="relative flex flex-col h-screen bg-background select-none">
+    <div className="relative flex flex-col h-dvh overflow-hidden bg-background select-none">
       <OfflineIndicator isOnline={isOnline} />
       <Header />
+      <InstallBanner />
       
       {/* Top right: Install + Hamburger only */}
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
