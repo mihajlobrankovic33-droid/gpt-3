@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png", "pwa-maskable-512x512.png"],
       manifest: {
         name: "Study Buddy",
         short_name: "Study Buddy",
@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png",
+            src: "pwa-maskable-512x512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
