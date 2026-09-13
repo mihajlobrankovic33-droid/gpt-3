@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, X, Sun, Moon, User, LogOut, Crown, RefreshCw, History, Trash2, Shield, Globe, Check, Sparkles, MessageSquare } from "lucide-react";
+import { Menu, X, Sun, Moon, User, LogOut, RefreshCw, History, Trash2, Shield, Globe, Check, Sparkles, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useTheme } from "@/hooks/useTheme";
@@ -8,30 +8,25 @@ import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
 import { useLanguage, languageNames, Language } from "@/context/LanguageContext";
 import { useCustomization, avatarThemes } from "@/context/CustomizationContext";
 import { useToast } from "@/hooks/use-toast";
-import { ProCodesAdmin } from "@/components/ProCodesAdmin";
-import { ProUpgradeModal } from "@/components/ProUpgradeModal";
 
 const ADMIN_EMAIL = "mihajlobrankovic33@gmail.com";
 
 interface HamburgerMenuProps {
   onOpenProfile: () => void;
-  onOpenProModal: () => void;
   onOpenChatHistory: () => void;
   onClearHistory: () => void;
   customSystemPrompt?: string;
   onCustomSystemPromptChange?: (prompt: string) => void;
 }
 
-export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory, onClearHistory, customSystemPrompt = "", onCustomSystemPromptChange }: HamburgerMenuProps) {
+export function HamburgerMenu({ onOpenProfile, onOpenChatHistory, onClearHistory, customSystemPrompt = "", onCustomSystemPromptChange }: HamburgerMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showLanguages, setShowLanguages] = useState(false);
   const [showCharacters, setShowCharacters] = useState(false);
   const [showGptPersonalize, setShowGptPersonalize] = useState(false);
   const [localPrompt, setLocalPrompt] = useState(customSystemPrompt);
-  const [showProCodesAdmin, setShowProCodesAdmin] = useState(false);
-  const [showProUpgradeModal, setShowProUpgradeModal] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { user, isPro, isLifetimePro, daysRemaining, signOut } = useSupabaseAuth();
+  const { user, signOut } = useSupabaseAuth();
   const { language, setLanguage, t } = useLanguage();
   const { settings, selectTheme } = useCustomization();
   const { toast } = useToast();
@@ -71,11 +66,6 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
   const handleOpenProfile = () => {
     setIsOpen(false);
     onOpenProfile();
-  };
-
-  const handleOpenProModal = () => {
-    setShowProUpgradeModal(true);
-    setIsOpen(false);
   };
 
   const handleSelectCharacter = (themeId: string) => {
@@ -150,25 +140,6 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
 
           {/* Menu Items */}
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {/* Pro Status */}
-            {isPro ? (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <Crown className="w-5 h-5 text-amber-400" />
-                <span className="text-sm font-medium text-amber-400">
-                  {isLifetimePro ? t.lifetimePro : `Pro (${daysRemaining} ${t.days})`}
-                </span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleOpenProModal}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-left hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
-              >
-                <Crown className="w-5 h-5 text-amber-400" />
-                <span className="text-sm font-semibold text-amber-400">{t.upgradeToPro}</span>
-              </button>
-            )}
-
             {/* Languages Section */}
             {!showLanguages ? (
               <button
@@ -390,15 +361,6 @@ export function HamburgerMenu({ onOpenProfile, onOpenProModal, onOpenChatHistory
           </div>
         </div>
       )}
-
-      {/* Pro Codes Admin Panel */}
-      <ProCodesAdmin
-        isOpen={showProCodesAdmin}
-        onClose={() => setShowProCodesAdmin(false)}
-      />
-
-      {/* Pro Upgrade Modal (local) */}
-      <ProUpgradeModal open={showProUpgradeModal} onOpenChange={setShowProUpgradeModal} />
     </>
   );
 }

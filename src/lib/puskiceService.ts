@@ -1,7 +1,6 @@
-// Puskice (Cheat Sheets) Daily Limit Service
+// Puskice (Cheat Sheets) Service
 
 const STORAGE_KEY = "studybuddy-puskice";
-const DAILY_LIMIT = 5;
 
 interface PuskiceData {
   date: string;
@@ -42,13 +41,11 @@ function saveData(data: PuskiceData): void {
 }
 
 export function canCreatePuskica(): boolean {
-  const data = getData();
-  return data.count < DAILY_LIMIT;
+  return true;
 }
 
 export function getRemainingToday(): number {
-  const data = getData();
-  return Math.max(0, DAILY_LIMIT - data.count);
+  return Infinity;
 }
 
 export function getTodayCount(): number {
@@ -59,13 +56,8 @@ export function getAllPuskice(): PuskiceItem[] {
   return getData().items;
 }
 
-export function createPuskica(title: string, content: string, imageUrl?: string, isAdmin: boolean = false): { success: boolean; item?: PuskiceItem } {
+export function createPuskica(title: string, content: string, imageUrl?: string): { success: boolean; item?: PuskiceItem } {
   const data = getData();
-  
-  // Admin bypasses daily limit
-  if (!isAdmin && data.count >= DAILY_LIMIT) {
-    return { success: false };
-  }
   
   const newItem: PuskiceItem = {
     id: crypto.randomUUID(),
@@ -75,10 +67,7 @@ export function createPuskica(title: string, content: string, imageUrl?: string,
     createdAt: new Date().toISOString(),
   };
   
-  // Only increment count for non-admin users
-  if (!isAdmin) {
-    data.count += 1;
-  }
+  data.count += 1;
   data.items.push(newItem);
   saveData(data);
   

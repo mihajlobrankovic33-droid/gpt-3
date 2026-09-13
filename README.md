@@ -4,11 +4,12 @@ StudyBuddy je moderna Web aplikacija dizajnirana da pomogne studentima i đacima
 
 ## Glavne funkcionalnosti
 
+- **Potpuno besplatno**: Sve funkcije su besplatne - nema Pro pretplate, kodova ni limita.
 - **Multi-jezička podrška**: Aplikacija podržava više jezika (Srpski, Engleski, itd.).
-- **Pametne puškice**: Brzo izvucite ključne informacije iz slika beleški.
+- **Pametne puškice**: Brzo izvucite ključne informacije iz slika beleški - bez dnevnih limita.
 - **AI Chat**: Razgovarajte sa AI asistentom koji je obučen da bude strpljiv mentor.
+- **Poruke (ćaskanje)**: Pošaljite poruke, beleške i puškice prijateljima i drugim korisnicima - tekstualno ćaskanje kao Viber, bez video poziva.
 - **Istorija sesija**: Sačuvajte svoje razgovore i vratite im se kasnije.
-- **Pro verzija**: Napredne funkcije uz korišćenje PRO kodova.
 
 ## Tehnologije
 

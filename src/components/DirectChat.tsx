@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useSupabaseAuth } from "@/context/SupabaseAuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -250,7 +250,7 @@ export function DirectChat() {
 
       // Use secure edge function to find user (prevents email enumeration)
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/find-user`,
+        `${SUPABASE_URL}/functions/v1/find-user`,
         {
           method: "POST",
           headers: {

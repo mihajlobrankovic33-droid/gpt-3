@@ -25,8 +25,6 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  activateProWithCode: (code: string) => Promise<{ success: boolean; error?: string }>;
-  activateProWithPayment: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   checkAdminStatus: () => Promise<boolean>;
 }
@@ -134,32 +132,10 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [session]);
 
-  const checkProStatus = useCallback((profileData: Profile | null): { isPro: boolean; isLifetime: boolean; daysRemaining: number | null } => {
-    if (!profileData) return { isPro: false, isLifetime: false, daysRemaining: null };
-    
-    if (!profileData.is_pro) return { isPro: false, isLifetime: false, daysRemaining: null };
-    
-    if (!profileData.subscription_expiry_date) {
-      return { isPro: true, isLifetime: true, daysRemaining: null };
-    }
-    
-    const expiryDate = new Date(profileData.subscription_expiry_date);
-    const now = new Date();
-    
-    if (expiryDate <= now) {
-      supabase
-        .from('profiles')
-        .update({ is_pro: false })
-        .eq('user_id', profileData.user_id)
-        .then(() => {
-          refreshProfile();
-        });
-      return { isPro: false, isLifetime: false, daysRemaining: null };
-    }
-    
-    const daysRemaining = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return { isPro: true, isLifetime: false, daysRemaining };
-  }, [refreshProfile]);
+  // All features are now free for everyone
+  const checkProStatus = useCallback((_profileData: Profile | null): { isPro: boolean; isLifetime: boolean; daysRemaining: number | null } => {
+    return { isPro: true, isLifetime: true, daysRemaining: null };
+  }, []);
 
   const proStatus = checkProStatus(profile);
 
@@ -329,54 +305,6 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAdmin(false);
   };
 
-  const activateProWithCode = async (code: string): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: "Niste prijavljeni" };
-    
-    const { data, error } = await supabase.functions.invoke('redeem-pro-code', {
-      body: { 
-        code: code.toUpperCase().trim(),
-        deviceId: localStorage.getItem('device_id') || 'unknown'
-      }
-    });
-    
-    if (error) {
-      return { success: false, error: error.message };
-    }
-    
-    if (data?.error) {
-      return { success: false, error: data.error };
-    }
-    
-    await refreshProfile();
-    return { success: true };
-  };
-
-  const activateProWithPayment = async () => {
-    if (!user) return;
-    
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 30);
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update({ 
-        is_pro: true, 
-        subscription_expiry_date: expiryDate.toISOString() 
-      })
-      .eq('user_id', user.id);
-    
-    if (error) {
-      toast({
-        title: "Greška",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    await refreshProfile();
-  };
-
   return (
     <AuthContext.Provider value={{
       user,
@@ -391,8 +319,6 @@ export const SupabaseAuthProvider = ({ children }: { children: ReactNode }) => {
       signInWithEmail,
       signUpWithEmail,
       signOut,
-      activateProWithCode,
-      activateProWithPayment,
       refreshProfile,
       checkAdminStatus,
     }}>

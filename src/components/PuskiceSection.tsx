@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ProUpgradeModal } from "./ProUpgradeModal";
 import { supabase, isConfigValid, SUPABASE_URL } from "@/integrations/supabase/client";
 import { Plus, Eye, Trash2, FileText, Sparkles, Shield, X, Loader2, Upload, BookOpen, ChevronDown, ChevronRight, History } from "lucide-react";
 import { FullscreenModal, cleanText } from "@/components/FullscreenModal";
@@ -20,17 +19,13 @@ interface PuskiceItem {
   created_at: string;
 }
 
-const DAILY_LIMIT = 5;
-
+// All features are free - no daily limit
 export function PuskiceSection() {
-  const { isPro, isLifetimePro, user } = useSupabaseAuth();
+  const { user } = useSupabaseAuth();
   const { t } = useLanguage();
-  const hasUnlimitedAccess = isPro;
   
   const [puskice, setPuskice] = useState<PuskiceItem[]>([]);
-  const [todayCount, setTodayCount] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showProModal, setShowProModal] = useState(false);
   const [showQuickView, setShowQuickView] = useState<PuskiceItem | null>(null);
   const [subject, setSubject] = useState("");
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
@@ -98,20 +93,11 @@ export function PuskiceSection() {
     }
 
     setPuskice(data || []);
-
-    // Count today's creations
-    const today = new Date().toISOString().split("T")[0];
-    const todayItems = (data || []).filter(
-      (item) => item.created_at.split("T")[0] === today
-    );
-    setTodayCount(todayItems.length);
   }, [user]);
 
   useEffect(() => {
     fetchPuskice();
   }, [user, fetchPuskice]);
-
-  const remaining = Math.max(0, DAILY_LIMIT - todayCount);
 
   // Group puskice by subject for history view
   const groupedPuskice = useMemo(() => groupBySubject(puskice), [puskice, groupBySubject]);
@@ -136,10 +122,6 @@ export function PuskiceSection() {
   };
 
   const handleCreate = () => {
-    if (!hasUnlimitedAccess && todayCount >= DAILY_LIMIT) {
-      setShowProModal(true);
-      return;
-    }
     setSubject("");
     setImageUrl(undefined);
     setShowCreateModal(true);
@@ -324,16 +306,10 @@ export function PuskiceSection() {
           <h2 className="text-lg font-bold text-foreground">{t.myPuskice}</h2>
         </div>
         <div className="flex items-center gap-3">
-          {hasUnlimitedAccess ? (
-            <span className="flex items-center gap-1 text-sm text-amber-400 font-semibold">
-              <Shield className="w-4 h-4" />
-              {isLifetimePro ? t.lifetimePro : "Pro"} - {t.unlimited}
-            </span>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t.remainingToday}: <span className="font-bold text-primary">{remaining}/5</span>
-            </span>
-          )}
+          <span className="flex items-center gap-1 text-sm text-emerald-400 font-semibold">
+            <Shield className="w-4 h-4" />
+            {t.unlimited}
+          </span>
           <Button
             onClick={handleCreate}
             size="sm"
@@ -535,8 +511,6 @@ export function PuskiceSection() {
           </div>
         </div>
       </FullscreenModal>
-      {/* Pro Upgrade Modal */}
-      <ProUpgradeModal open={showProModal} onOpenChange={setShowProModal} />
     </div>
   );
 }

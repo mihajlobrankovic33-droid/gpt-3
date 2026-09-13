@@ -11,7 +11,6 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { PuskiceSection } from "@/components/PuskiceSection";
 import { DirectChat } from "@/components/DirectChat";
 import { AuthScreen } from "@/components/AuthScreen";
-import { ProUpgradeModal } from "@/components/ProUpgradeModal";
 import { HamburgerMenu } from "@/components/HamburgerMenu";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { ChatHistoryModal, detectSubject, generateTitle } from "@/components/ChatHistoryModal";
@@ -46,7 +45,6 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   const [currentAction, setCurrentAction] = useState<ActionType | null>(null);
   const [activeTab, setActiveTab] = useState<"chat" | "puskice" | "messages">("chat");
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [showProModal, setShowProModal] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -59,7 +57,7 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
   const streamBufferRef = useRef<string>(""); // Buffer for batching stream updates
   const streamUpdateTimeoutRef = useRef<number | null>(null);
   const { toast } = useToast();
-  const { user, profile, isLoading: authLoading, isPro, isLifetimePro, isAdmin, daysRemaining, signOut } = useSupabaseAuth();
+  const { user, profile, isLoading: authLoading, isAdmin, signOut } = useSupabaseAuth();
   const isOnline = useOfflineStatus();
   const { t } = useLanguage();
 
@@ -407,7 +405,6 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
         <InstallPWAButton />
         <HamburgerMenu
           onOpenProfile={() => setShowProfileSettings(true)}
-          onOpenProModal={() => setShowProModal(true)}
           onOpenChatHistory={() => setShowChatHistory(true)}
           onClearHistory={handleNewChat}
           customSystemPrompt={customSystemPrompt}
@@ -429,9 +426,6 @@ const Home = forwardRef<HTMLDivElement>((_, ref) => {
         onNewChat={handleNewChat}
         currentSessionId={currentSessionId}
       />
-      
-      {/* Pro Upgrade Modal */}
-      <ProUpgradeModal open={showProModal} onOpenChange={setShowProModal} />
       
       
       {/* Admin Panel */}
